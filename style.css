@@ -118,8 +118,9 @@ body {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
-  gap: 1em 0.3em;
-  font-size: 1.75rem; /* 少しフォントサイズを調整 */
+  gap: 0.8em 0.3em; /* 行間を少し詰める */
+  font-size: 1.6rem; /* フォントサイズを少し小さくする */
+  min-height: 6rem; /* 最低でも2行分程度の高さを確保 */
   box-sizing: border-box;
 }
 
