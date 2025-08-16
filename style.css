@@ -11,7 +11,7 @@ body {
 .container {
   display: flex;
   flex-direction: column;
-  min-height: calc(100vh - 20px); /* 最低限の高さを確保し、コンテンツに応じて伸びるように変更 */
+  height: calc(100vh - 20px); /* ビューポートの高さからパディングを引く */
 }
 
 .input-section {
@@ -118,9 +118,8 @@ body {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
-  gap: 0.6em 0.3em; /* 行間をさらに詰める */
-  font-size: 1.4rem; /* フォントサイズをさらに小さくする */
-  min-height: 5.5rem; /* 新しいフォントサイズに合わせて高さを再調整 */
+  gap: 1em 0.3em;
+  font-size: 1.75rem; /* 少しフォントサイズを調整 */
   box-sizing: border-box;
 }
 
