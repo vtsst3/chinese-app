@@ -11,22 +11,19 @@
         <div class="input-section">
             <textarea id="text-input" placeholder="テキストを入力..." rows="1"></textarea>
             <div class="button-group">
-                <button id="translate-btn">翻訳</button>
-                <button id="cancel-btn">翻訳中止</button>
-                <button id="clear-btn">クリア</button>
-                <button id="speak-btn">音声生成</button>
-                <button id="stop-btn">音声中止</button>
-                <button id="toggle-api-key-btn">キー</button>
-                <button id="copy-log-btn">ログ</button>
+                <button id="translate-btn" title="翻訳">▶️</button>
+                <button id="cancel-btn" title="翻訳中止">🛑</button>
+                <button id="speak-btn" title="音声生成">🔊</button>
+                <button id="stop-btn" title="音声中止">■</button>
+                <button id="clear-btn" title="クリア">🗑️</button>
+                <button id="settings-btn" title="設定">⚙️</button>
             </div>
         </div>
 
         <div id="api-key-section" class="settings-section hidden">
             <input type="password" id="gemini-api-key-input" placeholder="ここにGemini APIキーを入力">
-            <input type="password" id="aws-access-key-id-input" placeholder="AWS Access Key ID">
-            <input type="password" id="aws-secret-key-input" placeholder="AWS Secret Access Key">
-            <input type="text" id="aws-region-input" placeholder="AWS Region (例: ap-northeast-1)">
-            <button id="save-keys-btn">キーを保存</button>
+            <button id="save-keys-btn">Geminiキーを保存</button>
+            <button id="copy-log-btn">ログをコピー</button>
         </div>
 
         <div class="output-section" id="chinese-output-container">

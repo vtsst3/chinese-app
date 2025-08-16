@@ -13,7 +13,7 @@ const cancelBtn = document.getElementById('cancel-btn');
 const clearBtn = document.getElementById('clear-btn');
 const speakBtn = document.getElementById('speak-btn');
 const stopBtn = document.getElementById('stop-btn');
-const toggleApiKeyBtn = document.getElementById('toggle-api-key-btn');
+const settingsBtn = document.getElementById('settings-btn');
 const apiKeySection = document.getElementById('api-key-section');
 
 // --- グローバル変数 ---
@@ -201,49 +201,44 @@ async function loadPrompts() {
 
 function saveKeys() {
     const geminiKey = document.getElementById('gemini-api-key-input').value.trim();
-    const awsAccessKey = awsAccessKeyIdInput.value.trim();
-    const awsSecretKey = awsSecretKeyInput.value.trim();
-    const awsRegion = awsRegionInput.value.trim();
-
-    if (geminiKey) localStorage.setItem('geminiApiKey', geminiKey);
-    if (awsAccessKey) localStorage.setItem('awsAccessKeyId', awsAccessKey);
-    if (awsSecretKey) localStorage.setItem('awsSecretAccessKey', awsSecretKey);
-    if (awsRegion) localStorage.setItem('awsRegion', awsRegion);
-    
-    alert('キーを保存しました。');
-    initializePolly();
+    if (geminiKey) {
+        localStorage.setItem('geminiApiKey', geminiKey);
+        geminiApiKey = geminiKey;
+    }
+    alert('Gemini APIキーを保存しました。');
 }
 
 function loadKeys() {
     const geminiKey = localStorage.getItem('geminiApiKey');
-    const awsAccessKey = localStorage.getItem('awsAccessKeyId');
-    const awsSecretKey = localStorage.getItem('awsSecretAccessKey');
-    const awsRegion = localStorage.getItem('awsRegion');
-
     if (geminiKey) {
         document.getElementById('gemini-api-key-input').value = geminiKey;
         geminiApiKey = geminiKey;
     }
-    if (awsAccessKey) awsAccessKeyIdInput.value = awsAccessKey;
-    if (awsSecretKey) awsSecretKeyInput.value = awsSecretKey;
-    if (awsRegion) awsRegionInput.value = awsRegion;
-
+    // AWSキーの読み込みは不要になったので、Pollyの初期化を直接呼び出す
     initializePolly();
 }
 
 function initializePolly() {
-    const accessKeyId = awsAccessKeyIdInput.value.trim();
-    const secretAccessKey = awsSecretKeyInput.value.trim();
-    const region = awsRegionInput.value.trim();
+    const region = 'ap-northeast-1';
+    const identityPoolId = 'ap-northeast-1:51014915-a5b3-4fb4-abc6-4b725fcce752';
 
-    if (accessKeyId && secretAccessKey && region) {
-        AWS.config.update({
-            accessKeyId: accessKeyId,
-            secretAccessKey: secretAccessKey,
-            region: region
-        });
-        polly = new AWS.Polly();
-        // AudioContextの初期化 (ユーザーの操作後に作成するのが望ましい)
+    AWS.config.region = region;
+    AWS.config.credentials = new AWS.CognitoIdentityCredentials({
+        IdentityPoolId: identityPoolId
+    });
+
+    // 資格情報を取得してからPollyクライアントを初期化
+    AWS.config.credentials.get(function(err) {
+        if (err) {
+            console.error("Error retrieving credentials: ", err);
+            alert("AWS認証情報の取得に失敗しました。");
+            return;
+        }
+        
+        polly = new AWS.Polly({ region: region });
+        console.log('Polly client initialized with Cognito.');
+
+        // AudioContextの初期化
         if (!audioContext) {
             try {
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -253,34 +248,91 @@ function initializePolly() {
                 alert('お使いのブラウザはWeb Audio APIをサポートしていません。');
             }
         }
-        console.log('Polly client initialized.');
-    } else {
-        console.log('Polly client not initialized. AWS credentials missing.');
-    }
+    });
 }
 
 async function speak(text, force_regenerate = false) {
-    if (!polly) {
-        alert('AWS認証情報が設定されていないため、音声を再生できません。');
+    if (!polly || !audioContext) {
+        alert('AWS認証情報またはオーディオ機能が初期化されていないため、音声を再生できません。');
         return;
     }
     if (!text || !text.trim()) return;
 
+    if (audioContext.state === 'suspended') {
+        await audioContext.resume();
+    }
+
     stopSpeech();
     isSpeaking = true;
 
-    // 1. 前処理：笑い表現を特殊なポーズ記号に置換
-    let processedText = text
-        .replace(/\b(w|W|ｗ|Ｗ)+\b/g, ' __LAUGH_PAUSE__ ')
-        .replace(/哈{2,}/g, ' __LAUGH_PAUSE__ ');
+    const containsMeaningfulEnglish = /[a-vx-zA-VX-Z]/.test(text);
 
-    // 2. チャンク分割：句読点、スペース、改行、特殊記号で分割
-    const chunks = processedText.split(/([。、？！~～「」『』""\s\n]|__LAUGH_PAUSE__)/).filter(Boolean);
+    if (containsMeaningfulEnglish) {
+        const processedText = text.replace(/\b(w|W|ｗ|Ｗ)+\b/g, '').replace(/哈{2,}/g, '');
+        playAudioFromText(processedText, () => { isSpeaking = false; });
+    } else {
+        let processedText = text
+            .replace(/\b(w|W|ｗ|Ｗ)+\b/g, ' __LAUGH_PAUSE__ ')
+            .replace(/哈{2,}/g, ' __LAUGH_PAUSE__ ');
 
-    speechQueue = chunks;
-    playNextChunk();
+        const chunks = processedText.split(/([。、？！~～「」『』""\s\n]|__LAUGH_PAUSE__)/).filter(c => c);
+        speechQueue = chunks;
+        playNextChunk();
+    }
 }
 
+async function playAudioFromText(text, onEndedCallback) {
+    if (audioCache.has(text)) {
+        const audioBuffer = audioCache.get(text);
+        playAudioBuffer(audioBuffer, onEndedCallback);
+        return;
+    }
+
+    try {
+        const params = {
+            Text: text,
+            OutputFormat: 'mp3',
+            VoiceId: 'Zhiyu',
+            Engine: 'neural'
+        };
+        const data = await polly.synthesizeSpeech(params).promise();
+        if (data.AudioStream) {
+            // AudioStream (Buffer/Uint8Array) から ArrayBuffer を正しく取得する
+            const arrayBuffer = data.AudioStream.buffer.slice(data.AudioStream.byteOffset, data.AudioStream.byteOffset + data.AudioStream.byteLength);
+            const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+            audioCache.set(text, audioBuffer);
+            playAudioBuffer(audioBuffer, onEndedCallback);
+        } else {
+            if (typeof onEndedCallback === 'function') onEndedCallback();
+        }
+    } catch (err) {
+        console.error('Polly or Audio Decode Error:', err);
+        if (typeof onEndedCallback === 'function') onEndedCallback();
+    }
+}
+
+function playAudioBuffer(audioBuffer, onEndedCallback) {
+    if (currentAudioSource) {
+        currentAudioSource.stop();
+    }
+    const source = audioContext.createBufferSource();
+    source.buffer = audioBuffer;
+
+    const gainNode = audioContext.createGain();
+    gainNode.gain.value = 2.0; 
+
+    source.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    
+    source.start(0);
+    currentAudioSource = source;
+    source.onended = () => {
+        currentAudioSource = null;
+        if (typeof onEndedCallback === 'function') {
+            onEndedCallback();
+        }
+    };
+}
 
 async function playNextChunk() {
     if (!isSpeaking || speechQueue.length === 0) {
@@ -288,101 +340,38 @@ async function playNextChunk() {
         return;
     }
 
-    // 1. 再生するテキストチャンクをキューから収集する
-    let textToSpeak = '';
-    let firstPauseChunk = null;
+    const chunk = speechQueue.shift().trim();
 
-    while(speechQueue.length > 0) {
-        const chunk = speechQueue[0]; // キューの先頭を覗き見る
-        const isPauseSymbol = /^[。、？！~～「」『』""\s\n]$/.test(chunk) || chunk === '__LAUGH_PAUSE__';
+    if (chunk === '') {
+        playNextChunk();
+        return;
+    }
 
-        if (isPauseSymbol) {
-            firstPauseChunk = chunk;
-            break; // ポーズ記号が見つかったら収集を停止
-        } else {
-            textToSpeak += speechQueue.shift(); // テキストチャンクをキューから取り出して結合
-        }
+    const punctuationPauseMap = {
+        '。': 500, '！': 500, '？': 500, '、': 250, '~': 200, '～': 200,
+        '「': 150, '」': 150, '『': 150, '』': 150, '""': 150, '\n': 400
+    };
+
+    if (punctuationPauseMap[chunk]) {
+        speechTimer = setTimeout(playNextChunk, punctuationPauseMap[chunk]);
+        return;
     }
     
-    textToSpeak = textToSpeak.trim();
-
-    // 2. 収集したテキストを再生する
-    if (textToSpeak) {
-        const onended = () => {
-            // 再生が終わったら、ポーズ処理に進む
-            handlePause(firstPauseChunk);
-        };
-
-        // Web Audio APIを使用するように変更
-        const playAudio = (buffer) => {
-            if (!isSpeaking) return;
-            currentAudioSource = audioContext.createBufferSource();
-            currentAudioSource.buffer = buffer;
-            currentAudioSource.connect(audioContext.destination);
-            currentAudioSource.onended = onended;
-            currentAudioSource.start(0);
-        };
-
-        if (audioCache.has(textToSpeak)) {
-            playAudio(audioCache.get(textToSpeak));
-        } else {
-            const params = { Text: textToSpeak, OutputFormat: 'mp3', VoiceId: 'Zhiyu', Engine: 'neural' };
-            try {
-                const data = await polly.synthesizeSpeech(params).promise();
-                if (data.AudioStream) {
-                    const arrayBuffer = new Uint8Array(data.AudioStream).buffer;
-                    audioContext.decodeAudioData(arrayBuffer, (buffer) => {
-                        audioCache.set(textToSpeak, buffer);
-                        playAudio(buffer);
-                    }, (err) => {
-                        console.error('Error decoding audio data', err);
-                        onended();
-                    });
-                } else {
-                    onended();
-                }
-            } catch (err) {
-                console.error('Polly Error:', err);
-                onended();
-            }
-        }
-    } else {
-        // 3. 再生するテキストがなければ、直接ポーズ処理に進む
-        handlePause(firstPauseChunk);
+    if (chunk === '__LAUGH_PAUSE__') {
+        speechTimer = setTimeout(playNextChunk, 200);
+        return;
     }
-}
-
-function handlePause(pauseChunk) {
-    if (!isSpeaking) return;
-
-    if (pauseChunk) {
-        speechQueue.shift(); // ポーズ記号をキューから取り除く
-
-        const punctuationPauseMap = {
-            '。': 500, '！': 500, '？': 500,
-            '、': 250,
-            '~': 200, '～': 200,
-            '「': 150, '」': 150, '『': 150, '』': 150, '""': 150
-        };
-        
-        let pauseDuration = 0;
-        if (punctuationPauseMap[pauseChunk]) {
-            pauseDuration = punctuationPauseMap[pauseChunk];
-        } else if (pauseChunk === '__LAUGH_PAUSE__') {
-            pauseDuration = 200;
-        } else if (/\s/.test(pauseChunk)) { // 改行とスペースの両方を捉える
-            pauseDuration = (pauseChunk.includes('\n')) ? 400 : 150;
-        }
-
-
-        if (pauseDuration > 0) {
-            speechTimer = setTimeout(playNextChunk, pauseDuration);
-        } else {
-            playNextChunk(); // 不明なポーズ記号は待たずに次へ
-        }
-    } else {
-        playNextChunk(); // ポーズ記号がなければすぐに次へ
+    
+    if (/^\s+$/.test(chunk)) {
+        speechTimer = setTimeout(playNextChunk, 150);
+        return;
     }
+
+    playAudioFromText(chunk, () => {
+        if (isSpeaking) {
+            playNextChunk();
+        }
+    });
 }
 
 function stopSpeech() {
@@ -581,16 +570,31 @@ async function handleTranslation() {
                 const explanationPart = document.createElement('div');
                 explanationPart.className = 'explanation';
                 explanationPart.innerHTML = explanationText;
+                
                 clickablePart.addEventListener('click', () => {
+                    // 他の選択肢のハイライトを解除
                     document.querySelectorAll('.translation-option.selected').forEach(el => {
                         el.classList.remove('selected');
                     });
+                    // クリックされたものをハイライト
                     clickablePart.classList.add('selected');
+                    
+                    // 機能の復活
                     updatePinyinDisplay(chineseText);
-                    navigator.clipboard.writeText(chineseText).catch(err => console.error('コピー失敗:', err));
+                    
+                    // クリップボードへのコピー (安全なコンテキストでのみ機能)
+                    if (navigator.clipboard) {
+                        navigator.clipboard.writeText(chineseText)
+                            .then(() => console.log('Copied to clipboard.'))
+                            .catch(err => console.error('Copy failed:', err));
+                    } else {
+                        console.warn('Clipboard API not available in this context.');
+                    }
+                    
                     speak(chineseText);
-                    lastSpokenText = chineseText;
+                    lastSpokenText = chineseText; // 音声ボタン用のテキストを更新
                 });
+
                 container.appendChild(clickablePart);
                 if (explanationText) {
                     container.appendChild(explanationPart);
@@ -629,7 +633,7 @@ document.addEventListener('DOMContentLoaded', () => {
         handleAutoPinyin();
     });
 
-    toggleApiKeyBtn.addEventListener('click', () => apiKeySection.classList.toggle('hidden'));
+    settingsBtn.addEventListener('click', () => apiKeySection.classList.toggle('hidden'));
     saveKeysBtn.addEventListener('click', saveKeys);
 
     copyLogBtn.addEventListener('click', () => {

@@ -4,14 +4,14 @@ body {
   color: #d4d4d4;
   font-family: 'Microsoft YaHei', 'SimHei', sans-serif;
   margin: 0;
-  padding: 10px; /* 全体のパディングを少し減らす */
+  padding: 10px;
   -webkit-font-smoothing: antialiased;
 }
 
 .container {
   display: flex;
   flex-direction: column;
-  min-height: calc(100vh - 20px); /* 最小高さを設定し、コンテンツに合わせて伸びるようにする */
+  min-height: calc(100vh - 20px);
 }
 
 .input-section {
@@ -20,8 +20,8 @@ body {
 
 #text-input {
     width: 100%;
-    min-height: 1.5em; /* 1行分の最小の高さ */
-    max-height: 6em;  /* 4行分のおおよその最大の高さ */
+    min-height: 1.5em;
+    max-height: 6em;
     line-height: 1.5em;
     padding: 0.5rem;
     margin-bottom: 0.5rem;
@@ -31,10 +31,11 @@ body {
     background-color: #2a2a2a;
     color: #d4d4d4;
     font-size: 1rem;
-    resize: none; /* ユーザーによるリサイズを無効化 */
-    overflow-y: auto; /* 内容がmax-heightを超えたらスクロールバーを表示 */
+    resize: none;
+    overflow-y: auto;
 }
 
+/* --- New Icon Button Styles --- */
 .button-group {
     display: flex;
     justify-content: space-between;
@@ -43,26 +44,36 @@ body {
 
 .button-group button {
     flex-grow: 1;
-    padding: 0.5rem 0.25rem;
+    padding: 0.5rem;
     border: none;
-    border-radius: 6px;
-    background-color: #4f46e5;
-    color: white;
-    font-size: 0.9rem;
+    border-radius: 8px;
+    font-size: 1.5rem;
+    line-height: 1;
+    text-align: center;
     cursor: pointer;
-    transition: background-color 0.2s;
+    transition: filter 0.2s;
+    color: white;
 }
 
 .button-group button:hover {
-    background-color: #4338ca;
+    filter: brightness(1.2);
 }
+
+#translate-btn { background-color: #4f46e5; } /* 紫 */
+#cancel-btn { background-color: #f97316; } /* オレンジ */
+#speak-btn { background-color: #3b82f6; } /* 青 */
+#stop-btn { background-color: #ef4444; } /* 赤 */
+#clear-btn { background-color: #6b7280; } /* グレー */
+#settings-btn { background-color: #6b7280; } /* グレー */
+/* --- End New Icon Button Styles --- */
+
 
 .settings-section {
     margin-bottom: 0.5rem;
     display: flex;
-    flex-direction: column; /* 縦に並べる */
+    flex-direction: column;
     gap: 0.5rem;
-    align-items: stretch; /* 幅を親に合わせる */
+    align-items: stretch;
 }
 
 .settings-section.hidden {
@@ -90,19 +101,9 @@ body {
 
 #copy-log-btn {
     background-color: #f59e0b;
+    color: white;
 }
 
-#speak-btn {
-    background-color: #3b82f6;
-}
-
-#stop-btn {
-    background-color: #ef4444;
-}
-
-#cancel-btn {
-    background-color: #f97316; /* orange */
-}
 
 .output-section {
     overflow-y: auto;
@@ -112,12 +113,10 @@ body {
     flex-direction: column;
 }
 
-/* ピンイン表示欄のコンテナは縮まないようにする */
 #chinese-output-container {
     flex-shrink: 0;
 }
 
-/* Gemini翻訳結果のコンテナが残りのスペースを埋める */
 #gemini-output-container {
     flex-grow: 1;
 }
@@ -128,8 +127,8 @@ body {
   flex-wrap: wrap;
   align-items: flex-end;
   gap: 1em 0.3em;
-  font-size: 1.5rem; /* フォントサイズを縮小 */
-  min-height: 6.5rem; /* 2行分の高さを確保 */
+  font-size: 1.5rem;
+  min-height: 6.5rem;
   box-sizing: border-box;
 }
 
@@ -139,7 +138,6 @@ body {
     white-space: pre-wrap;
 }
 
-/* 単語と句読点のスタイル */
 .word-group {
     display: inline-flex;
     padding-bottom: 2px;
@@ -166,13 +164,12 @@ body {
   line-height: 1;
 }
 
-/* 翻訳候補のスタイル */
 .translation-block {
-    margin-bottom: 0.5rem; /* ブロック下の余白を縮小 */
+    margin-bottom: 0.5rem;
 }
 .translation-option {
-    padding: 0.5rem; /* 内側の余白を縮小 */
-    margin-bottom: 0.25rem; /* 選択肢下の余白を縮小 */
+    padding: 0.5rem;
+    margin-bottom: 0.25rem;
     border-radius: 4px;
     border: 1px solid #444;
     cursor: pointer;
@@ -184,8 +181,8 @@ body {
 }
 .translation-option code {
     font-family: 'Microsoft YaHei', 'SimHei', sans-serif;
-    font-size: 1rem; /* フォントサイズを標準に */
-    line-height: 1.4; /* 行間を少し詰める */
+    font-size: 1rem;
+    line-height: 1.4;
 }
 .explanation {
     padding-left: 0.75rem;
@@ -194,8 +191,8 @@ body {
 }
 
 .important-expression {
-    background-color: #fef08a; /* 黄色 */
-    color: #1e1e1e; /* 暗いテキスト色 */
+    background-color: #fef08a;
+    color: #1e1e1e;
     font-weight: bold;
     padding: 2px 4px;
     border-radius: 4px;
