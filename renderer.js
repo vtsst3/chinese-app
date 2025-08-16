@@ -9,6 +9,7 @@ const translateBtn = document.getElementById('translate-btn');
 const clearInputBtn = document.getElementById('clear-input-btn');
 const clearBtn = document.getElementById('clear-btn');
 const speakBtn = document.getElementById('speak-btn');
+const pasteBtn = document.getElementById('paste-btn');
 const settingsBtn = document.getElementById('settings-btn');
 const apiKeySection = document.getElementById('api-key-section');
 
@@ -694,5 +695,17 @@ document.addEventListener('DOMContentLoaded', () => {
         geminiOutput.innerHTML = '';
         chatHistory = [];
         // autoResizeTextarea(); // テキストボックスのサイズ変更も不要
+    });
+
+    pasteBtn.addEventListener('click', async () => {
+        try {
+            const text = await navigator.clipboard.readText();
+            textInput.value = text;
+            autoResizeTextarea();
+            handleAutoPinyin();
+        } catch (err) {
+            console.error('クリップボードの読み取りに失敗しました:', err);
+            alert('クリップボードからの貼り付けに失敗しました。');
+        }
     });
 });

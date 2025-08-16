@@ -66,6 +66,7 @@ body {
 #clear-btn { background-color: #6b7280; flex: 2 1 0%; } /* グレー */
 #settings-btn { background-color: #6b7280; flex: 1 1 0%; } /* グレー */
 #clear-input-btn { background-color: #8b5cf6; flex: 2 1 0%; } /* 紫系 */
+#paste-btn { background-color: #22c55e; flex: 2 1 0%; } /* 緑 */
 /* --- End New Icon Button Styles --- */
 
 
