@@ -31,6 +31,7 @@ let speechQueue = [];
 let isSpeaking = false;
 let speechTimer = null; // ポーズ用のタイマーID
 let dictionaryPopup;
+let overlay; // オーバーレイ要素を保持する変数
 let isPopupVisible = false;
 
 // --- ここからピンイン変換ロジック ---
@@ -263,20 +264,15 @@ async function speak(text, force_regenerate = false) {
     isSpeaking = true;
     updateSpeakButtonState(true);
 
-    const containsMeaningfulEnglish = /[a-vx-zA-VX-Z]/.test(text);
+    // 英語が含まれる場合でも、常にチャンクに分割して処理するようにロジックを統一
+    let processedText = text
+        .replace(/\b(w|W|ｗ|Ｗ)+\b/g, ' __LAUGH_PAUSE__ ')
+        .replace(/哈{2,}/g, ' __LAUGH_PAUSE__ ');
 
-    if (containsMeaningfulEnglish) {
-        const processedText = text.replace(/\b(w|W|ｗ|Ｗ)+\b/g, '').replace(/哈{2,}/g, '');
-        playAudioFromText(processedText, () => { isSpeaking = false; updateSpeakButtonState(false); });
-    } else {
-        let processedText = text
-            .replace(/\b(w|W|ｗ|Ｗ)+\b/g, ' __LAUGH_PAUSE__ ')
-            .replace(/哈{2,}/g, ' __LAUGH_PAUSE__ ');
-
-        const chunks = processedText.split(/([。、？！~～「」『』""\s\n()（）]|__LAUGH_PAUSE__)/).filter(c => c);
-        speechQueue = chunks;
-        playNextChunk();
-    }
+    // 英語の単語もポーズとして機能するように、スペースで区切られたチャンクに分割する
+    const chunks = processedText.split(/([a-zA-Z\.\s]+|[。、？！~～「」『』\n()（）]|__LAUGH_PAUSE__)/).filter(c => c && c.trim() !== '');
+    speechQueue = chunks;
+    playNextChunk();
 }
 
 async function playAudioFromText(text, onEndedCallback) {
@@ -450,13 +446,17 @@ function showDictionaryPopup(definition, event) {
     dictionaryPopup.style.left = `${x}px`;
     dictionaryPopup.style.top = `${y}px`;
 
+    // ポップアップとオーバーレイを両方表示
     dictionaryPopup.classList.remove('hidden');
+    overlay.classList.remove('hidden');
     isPopupVisible = true;
 }
 
 function hideDictionaryPopup() {
     if (dictionaryPopup && isPopupVisible) {
+        // ポップアップとオーバーレイを両方隠す
         dictionaryPopup.classList.add('hidden');
+        overlay.classList.add('hidden');
         isPopupVisible = false;
     }
 }
@@ -760,12 +760,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // ポップアップの初期化と、外側クリックで閉じるイベント
+    // ポップアップとオーバーレイの初期化
     dictionaryPopup = document.getElementById('dictionary-popup');
-    window.addEventListener('click', (event) => {
-        // word-group（単語）のクリックは無視する
-        if (!event.target.closest('.word-group')) {
-            hideDictionaryPopup();
-        }
+    overlay = document.getElementById('overlay');
+
+    // オーバーレイがクリックされたらポップアップを隠す
+    overlay.addEventListener('click', () => {
+        hideDictionaryPopup();
     });
 });

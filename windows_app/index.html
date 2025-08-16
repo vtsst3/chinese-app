@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>中国語学習支援ツール v2</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="input-section">
+            <textarea id="text-input" placeholder="テキストを入力..." rows="1"></textarea>
+            <div class="button-group">
+                <button id="translate-btn" title="翻訳">▶️</button>
+                <button id="speak-btn" title="音声生成">🔊</button>
+                <button id="clear-input-btn" title="入力クリア">⌫</button>
+                <button id="paste-btn" title="貼り付け">📋</button>
+                <button id="clear-btn" title="履歴クリア">🗑️</button>
+                <button id="settings-btn" title="設定">⚙️</button>
+            </div>
+        </div>
+
+        <div id="api-key-section" class="settings-section hidden">
+            <input type="password" id="gemini-api-key-input" placeholder="ここにGemini APIキーを入力">
+            <button id="save-keys-btn">Geminiキーを保存</button>
+            <button id="copy-log-btn">ログをコピー</button>
+        </div>
+
+        <div class="output-section" id="chinese-output-container">
+            <div id="chinese-output" class="ruby-container"></div>
+        </div>
+        
+        <div class="output-section" id="gemini-output-container">
+            <div id="gemini-output" class="gemini-container"></div>
+        </div>
+    </div>
+
+    <script src="https://sdk.amazonaws.com/js/aws-sdk-2.1093.0.min.js"></script>
+    <script src="renderer.js" defer></script>
+
+    <div id="overlay" class="hidden"></div>
+    <div id="dictionary-popup" class="hidden"></div>
+</body>
+</html>

@@ -1,0 +1,21 @@
+# Node.js
+/node_modules/
+/.npmrc
+/package.json
+/package-lock.json
+
+# API Keys
+/.env
+
+# Logs and temporary files
+*.log
+/gemini_request_log.json
+
+# Other projects in the same directory
+/AndroidApp/
+/SillyTavern/
+/chinese-words-separator.github.io-main/
+
+# Cline and other text files
+*.md
+/gemini 2.5 pro.txt
