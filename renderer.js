@@ -30,6 +30,8 @@ let abortController = null; // AbortControllerを保持する変数
 let speechQueue = [];
 let isSpeaking = false;
 let speechTimer = null; // ポーズ用のタイマーID
+let dictionaryPopup;
+let isPopupVisible = false;
 
 // --- ここからピンイン変換ロジック ---
 const dictionary = new Map();
@@ -146,9 +148,14 @@ function processText(text) {
         else if (currentWord === '得' && verbList.has(segments[i - 1])) { pinyinsStr = 'de5'; } 
         else if (currentWord === '着' && verbList.has(segments[i - 1])) { pinyinsStr = 'zhe5'; }
         else if (charDefaultRules.has(currentWord)) { pinyinsStr = charDefaultRules.get(currentWord); }
-        else { pinyinsStr = dictionary.get(currentWord)[0].pinyin; }
+        else { 
+            const dictEntry = dictionary.get(currentWord);
+            if (dictEntry) {
+                pinyinsStr = dictEntry[0].pinyin;
+            }
+        }
         
-        const pinyins = pinyinsStr.split(' ');
+        const pinyins = pinyinsStr ? pinyinsStr.split(' ') : [];
         const chars = [];
         for (let k = 0; k < currentWord.length; k++) {
             const char = currentWord[k];
@@ -156,7 +163,10 @@ function processText(text) {
             const tone = pinyinWithNum.match(/(\d)/)?.[1] || '5';
             chars.push({ char: char, pinyin: convertPinyin(pinyinWithNum), tone: parseInt(tone) });
         }
-        finalResult.push({ word: currentWord, chars: chars });
+        
+        // 辞書の定義を取得
+        const definitions = dictionary.get(currentWord)?.map(d => d.definition).join('; ');
+        finalResult.push({ word: currentWord, chars: chars, definition: definitions });
     }
     return finalResult;
 }
@@ -263,7 +273,7 @@ async function speak(text, force_regenerate = false) {
             .replace(/\b(w|W|ｗ|Ｗ)+\b/g, ' __LAUGH_PAUSE__ ')
             .replace(/哈{2,}/g, ' __LAUGH_PAUSE__ ');
 
-        const chunks = processedText.split(/([。、？！~～「」『』""\s\n]|__LAUGH_PAUSE__)/).filter(c => c);
+        const chunks = processedText.split(/([。、？！~～「」『』""\s\n()（）]|__LAUGH_PAUSE__)/).filter(c => c);
         speechQueue = chunks;
         playNextChunk();
     }
@@ -326,7 +336,7 @@ async function playNextChunk() {
         return;
     }
 
-    const punctuationPauseMap = { '。': 500, '！': 500, '？': 500, '、': 250, '~': 200, '～': 200, '「': 150, '」': 150, '『': 150, '』': 150, '\n': 400 };
+    const punctuationPauseMap = { '。': 500, '！': 500, '？': 500, '、': 250, '~': 200, '～': 200, '「': 150, '」': 150, '『': 150, '』': 150, '\n': 400, '(': 150, ')': 150, '（': 150, '）': 150 };
     if (punctuationPauseMap[chunk]) {
         speechTimer = setTimeout(playNextChunk, punctuationPauseMap[chunk]);
         return;
@@ -415,6 +425,42 @@ async function callGemini(prompt, mode) {
     }
 }
 
+function showDictionaryPopup(definition, event) {
+    if (!dictionaryPopup || !definition) return;
+    // スラッシュを改行に置換し、定義を表示
+    dictionaryPopup.innerHTML = definition.replace(/\//g, '<br>');
+    
+    // 画面の境界を考慮してポップアップの位置を調整
+    const popupWidth = dictionaryPopup.offsetWidth;
+    const popupHeight = dictionaryPopup.offsetHeight;
+    const margin = 10; // 画面端からのマージン
+
+    let x = event.clientX + margin;
+    let y = event.clientY + margin;
+
+    // 右端に飛び出す場合は、カーソルの左側に表示
+    if (x + popupWidth > window.innerWidth) {
+        x = event.clientX - popupWidth - margin;
+    }
+    // 下端に飛び出す場合は、カーソルの上側に表示
+    if (y + popupHeight > window.innerHeight) {
+        y = event.clientY - popupHeight - margin;
+    }
+
+    dictionaryPopup.style.left = `${x}px`;
+    dictionaryPopup.style.top = `${y}px`;
+
+    dictionaryPopup.classList.remove('hidden');
+    isPopupVisible = true;
+}
+
+function hideDictionaryPopup() {
+    if (dictionaryPopup && isPopupVisible) {
+        dictionaryPopup.classList.add('hidden');
+        isPopupVisible = false;
+    }
+}
+
 function updatePinyinDisplay(text) {
     const words = processText(text);
     chineseOutput.innerHTML = '';
@@ -442,7 +488,12 @@ function updatePinyinDisplay(text) {
         }
         const wordGroupDiv = document.createElement('div');
         wordGroupDiv.className = 'word-group';
-        wordGroupDiv.addEventListener('click', () => speak(item.word));
+        wordGroupDiv.addEventListener('click', (event) => {
+            speak(item.word);
+            if (item.definition) {
+                showDictionaryPopup(item.definition, event);
+            }
+        });
         wordGroupDiv.style.cursor = 'pointer';
         item.chars.forEach(charInfo => {
             const charItemSpan = document.createElement('span');
@@ -706,6 +757,15 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (err) {
             console.error('クリップボードの読み取りに失敗しました:', err);
             alert('クリップボードからの貼り付けに失敗しました。');
+        }
+    });
+
+    // ポップアップの初期化と、外側クリックで閉じるイベント
+    dictionaryPopup = document.getElementById('dictionary-popup');
+    window.addEventListener('click', (event) => {
+        // word-group（単語）のクリックは無視する
+        if (!event.target.closest('.word-group')) {
+            hideDictionaryPopup();
         }
     });
 });
