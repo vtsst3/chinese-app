@@ -1,0 +1,200 @@
+/* 基本設定とダークモードの背景 */
+body {
+  background-color: #1e1e1e;
+  color: #d4d4d4;
+  font-family: 'Microsoft YaHei', 'SimHei', sans-serif;
+  margin: 0;
+  padding: 10px; /* 全体のパディングを少し減らす */
+  -webkit-font-smoothing: antialiased;
+}
+
+.container {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 20px); /* ビューポートの高さからパディングを引く */
+}
+
+.input-section {
+    margin-bottom: 0.5rem;
+}
+
+#text-input {
+    width: 100%;
+    min-height: 1.5em; /* 1行分の最小の高さ */
+    max-height: 6em;  /* 4行分のおおよその最大の高さ */
+    line-height: 1.5em;
+    padding: 0.5rem;
+    margin-bottom: 0.5rem;
+    box-sizing: border-box;
+    border-radius: 6px;
+    border: 1px solid #444;
+    background-color: #2a2a2a;
+    color: #d4d4d4;
+    font-size: 1rem;
+    resize: none; /* ユーザーによるリサイズを無効化 */
+    overflow-y: auto; /* 内容がmax-heightを超えたらスクロールバーを表示 */
+}
+
+.button-group {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.button-group button {
+    flex-grow: 1;
+    padding: 0.5rem 0.25rem;
+    border: none;
+    border-radius: 6px;
+    background-color: #4f46e5;
+    color: white;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.button-group button:hover {
+    background-color: #4338ca;
+}
+
+.settings-section {
+    margin-bottom: 0.5rem;
+    display: flex;
+    flex-direction: column; /* 縦に並べる */
+    gap: 0.5rem;
+    align-items: stretch; /* 幅を親に合わせる */
+}
+
+.settings-section.hidden {
+    display: none;
+}
+
+.settings-section input {
+    padding: 0.5rem;
+    border-radius: 6px;
+    border: 1px solid #444;
+    background-color: #2a2a2a;
+    color: #d4d4d4;
+    font-size: 0.9rem;
+}
+
+#save-keys-btn {
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 6px;
+    background-color: #5cb85c;
+    color: white;
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
+#copy-log-btn {
+    background-color: #f59e0b;
+}
+
+#speak-btn {
+    background-color: #3b82f6;
+}
+
+#stop-btn {
+    background-color: #ef4444;
+}
+
+#cancel-btn {
+    background-color: #f97316; /* orange */
+}
+
+.output-section {
+    flex-grow: 1; /* 残りのスペースを埋めるように拡張 */
+    overflow-y: auto;
+    border-top: 1px solid #444;
+    padding-top: 0.5rem;
+    display: flex;
+    flex-direction: column;
+}
+
+#chinese-output {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 1em 0.3em;
+  font-size: 1.75rem; /* 少しフォントサイズを調整 */
+  box-sizing: border-box;
+}
+
+.gemini-container {
+    font-size: 1rem;
+    line-height: 1.6;
+    white-space: pre-wrap;
+}
+
+/* 単語と句読点のスタイル */
+.word-group {
+    display: inline-flex;
+    padding-bottom: 2px;
+}
+.char-item {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 0 0.05em;
+}
+.punctuation {
+    display: inline-flex;
+    align-items: flex-end;
+    padding-bottom: 2px;
+    line-height: 1;
+}
+.pinyin {
+  font-size: 0.6em;
+  line-height: 1.2;
+  margin-bottom: 5px;
+}
+.hanzi {
+  font-size: 1em;
+  line-height: 1;
+}
+
+/* 翻訳候補のスタイル */
+.translation-block {
+    margin-bottom: 0.5rem; /* ブロック下の余白を縮小 */
+}
+.translation-option {
+    padding: 0.5rem; /* 内側の余白を縮小 */
+    margin-bottom: 0.25rem; /* 選択肢下の余白を縮小 */
+    border-radius: 4px;
+    border: 1px solid #444;
+    cursor: pointer;
+    background-color: #2a2a2a;
+}
+.translation-option.selected {
+    background-color: #4f46e5;
+    border-color: #a5b4fc;
+}
+.translation-option code {
+    font-family: 'Microsoft YaHei', 'SimHei', sans-serif;
+    font-size: 1rem; /* フォントサイズを標準に */
+    line-height: 1.4; /* 行間を少し詰める */
+}
+.explanation {
+    padding-left: 0.75rem;
+    font-size: 0.9rem;
+    color: #a0a0a0;
+}
+
+.important-expression {
+    background-color: #fef08a; /* 黄色 */
+    color: #1e1e1e; /* 暗いテキスト色 */
+    font-weight: bold;
+    padding: 2px 4px;
+    border-radius: 4px;
+}
+
+/* 声調の色 */
+.tone-1 { color: #ff4500; }
+.tone-2 { color: #2ebf4e; }
+.tone-3 { color: #007bff; }
+.tone-4 { color: #9370db; }
+.tone-5 { color: #808080; }
+.tone-0 { color: #d4d4d4; }

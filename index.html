@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>中国語学習支援ツール v2</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="input-section">
+            <textarea id="text-input" placeholder="テキストを入力..." rows="1"></textarea>
+            <div class="button-group">
+                <button id="translate-btn">翻訳</button>
+                <button id="cancel-btn">翻訳中止</button>
+                <button id="clear-btn">クリア</button>
+                <button id="speak-btn">音声生成</button>
+                <button id="stop-btn">音声中止</button>
+                <button id="toggle-api-key-btn">キー</button>
+                <button id="copy-log-btn">ログ</button>
+            </div>
+        </div>
+
+        <div id="api-key-section" class="settings-section hidden">
+            <input type="password" id="gemini-api-key-input" placeholder="ここにGemini APIキーを入力">
+            <input type="password" id="aws-access-key-id-input" placeholder="AWS Access Key ID">
+            <input type="password" id="aws-secret-key-input" placeholder="AWS Secret Access Key">
+            <input type="text" id="aws-region-input" placeholder="AWS Region (例: ap-northeast-1)">
+            <button id="save-keys-btn">キーを保存</button>
+        </div>
+
+        <div class="output-section" id="chinese-output-container">
+            <div id="chinese-output" class="ruby-container"></div>
+        </div>
+        
+        <div class="output-section" id="gemini-output-container">
+            <div id="gemini-output" class="gemini-container"></div>
+        </div>
+    </div>
+
+    <script src="https://sdk.amazonaws.com/js/aws-sdk-2.1093.0.min.js"></script>
+    <script src="renderer.js" defer></script>
+</body>
+</html>
