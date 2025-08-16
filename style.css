@@ -43,7 +43,7 @@ body {
 }
 
 .button-group button {
-    flex-grow: 1;
+    /* flex-grow: 1; */ /* この行をコメントアウトまたは削除 */
     padding: 0.5rem;
     border: none;
     border-radius: 8px;
@@ -59,12 +59,13 @@ body {
     filter: brightness(1.2);
 }
 
-#translate-btn { background-color: #4f46e5; } /* 紫 */
+#translate-btn { background-color: #4f46e5; flex: 3 1 0%; } /* 紫 */
 #cancel-btn { background-color: #f97316; } /* オレンジ */
-#speak-btn { background-color: #3b82f6; } /* 青 */
+#speak-btn { background-color: #3b82f6; flex: 2 1 0%; } /* 青 */
 #stop-btn { background-color: #ef4444; } /* 赤 */
-#clear-btn { background-color: #6b7280; } /* グレー */
-#settings-btn { background-color: #6b7280; } /* グレー */
+#clear-btn { background-color: #6b7280; flex: 2 1 0%; } /* グレー */
+#settings-btn { background-color: #6b7280; flex: 1 1 0%; } /* グレー */
+#clear-input-btn { background-color: #8b5cf6; flex: 2 1 0%; } /* 紫系 */
 /* --- End New Icon Button Styles --- */
 
 

@@ -1,18 +1,14 @@
 // --- DOM要素の取得 ---
 const apiKeyInput = document.getElementById('gemini-api-key-input');
-const awsAccessKeyIdInput = document.getElementById('aws-access-key-id-input');
-const awsSecretKeyInput = document.getElementById('aws-secret-key-input');
-const awsRegionInput = document.getElementById('aws-region-input');
 const saveKeysBtn = document.getElementById('save-keys-btn');
 const copyLogBtn = document.getElementById('copy-log-btn');
 const textInput = document.getElementById('text-input');
 const chineseOutput = document.getElementById('chinese-output');
 const geminiOutput = document.getElementById('gemini-output');
 const translateBtn = document.getElementById('translate-btn');
-const cancelBtn = document.getElementById('cancel-btn');
+const clearInputBtn = document.getElementById('clear-input-btn');
 const clearBtn = document.getElementById('clear-btn');
 const speakBtn = document.getElementById('speak-btn');
-const stopBtn = document.getElementById('stop-btn');
 const settingsBtn = document.getElementById('settings-btn');
 const apiKeySection = document.getElementById('api-key-section');
 
@@ -27,6 +23,7 @@ let audioContext; // Web Audio APIのコンテキスト
 let currentAudioSource = null; // 現在再生中のAudioBufferSourceNode
 const audioCache = new Map();
 let lastSpokenText = '';
+let lastAutoSpokenContext = ''; // 最後に自動再生したContextを記憶
 let inputDebounceTimer;
 let abortController = null; // AbortControllerを保持する変数
 let speechQueue = [];
@@ -104,30 +101,24 @@ function processText(text) {
     while (i < text.length) {
         let foundWord = '';
         const remainingText = text.substring(i);
-
-        // 優先度1: 英単語を抽出
         const englishMatch = remainingText.match(/^[a-zA-Z]+/);
         if (englishMatch) {
             foundWord = englishMatch[0];
         } else {
-            // 優先度2: 句読点
             const puncMatch = remainingText.match(/^[^\u4e00-\u9fa5a-zA-Z0-9]+/);
             if (puncMatch) {
                 foundWord = puncMatch[0];
             } else {
-                // 優先度3: 数字
                 const numMatch = remainingText.match(/^[0-9:.]+/);
                 if (numMatch) {
                     foundWord = numMatch[0];
                 } else {
-                    // 優先度4: 中国語の辞書検索
                     for (const ruleWord of Array.from(customWordRules.keys()).sort((a,b) => b.length - a.length)) { if (remainingText.startsWith(ruleWord)) { foundWord = ruleWord; break; } }
                     if (!foundWord) { for (const ruleWord of Array.from(fixedWordRules.keys()).sort((a,b) => b.length - a.length)) { if (remainingText.startsWith(ruleWord)) { foundWord = ruleWord; break; } } }
                     if (!foundWord) { for (let j = Math.min(10, remainingText.length); j > 0; j--) { const sub = remainingText.substring(0, j); if (dictionary.has(sub)) { foundWord = sub; break; } } }
                 }
             }
         }
-        // マッチしなかった場合は1文字進める
         if (!foundWord) { foundWord = text[i]; }
         segments.push(foundWord);
         i += foundWord.length;
@@ -140,23 +131,10 @@ function processText(text) {
         const isPunctuation = /^[^\u4e00-\u9fa5a-zA-Z0-9]+$/.test(currentWord);
         const isNumber = /^[0-9:.]+$/.test(currentWord);
 
-        if (isEnglish) {
-            finalResult.push({ word: currentWord, chars: null, isEnglish: true });
-            continue;
-        }
-        if (isPunctuation) {
-            finalResult.push({ word: currentWord, chars: null, isPunctuation: true });
-            continue;
-        }
-        if (isNumber) {
-            finalResult.push({ word: currentWord, chars: null, isNumber: true });
-            continue;
-        }
-        // 中国語またはその他の文字
-        if (!dictionary.has(currentWord) && !fixedWordRules.has(currentWord) && !customWordRules.has(currentWord)) {
-            finalResult.push({ word: currentWord, chars: null }); // 辞書にない場合はピンインなし
-            continue;
-        }
+        if (isEnglish) { finalResult.push({ word: currentWord, chars: null, isEnglish: true }); continue; }
+        if (isPunctuation) { finalResult.push({ word: currentWord, chars: null, isPunctuation: true }); continue; }
+        if (isNumber) { finalResult.push({ word: currentWord, chars: null, isNumber: true }); continue; }
+        if (!dictionary.has(currentWord) && !fixedWordRules.has(currentWord) && !customWordRules.has(currentWord)) { finalResult.push({ word: currentWord, chars: null }); continue; }
         
         let pinyinsStr;
         if (customWordRules.has(currentWord)) { pinyinsStr = customWordRules.get(currentWord); }
@@ -214,7 +192,6 @@ function loadKeys() {
         document.getElementById('gemini-api-key-input').value = geminiKey;
         geminiApiKey = geminiKey;
     }
-    // AWSキーの読み込みは不要になったので、Pollyの初期化を直接呼び出す
     initializePolly();
 }
 
@@ -222,23 +199,22 @@ function initializePolly() {
     const region = 'ap-northeast-1';
     const identityPoolId = 'ap-northeast-1:51014915-a5b3-4fb4-abc6-4b725fcce752';
 
+    speakBtn.disabled = true;
+
     AWS.config.region = region;
     AWS.config.credentials = new AWS.CognitoIdentityCredentials({
         IdentityPoolId: identityPoolId
     });
 
-    // 資格情報を取得してからPollyクライアントを初期化
     AWS.config.credentials.get(function(err) {
         if (err) {
             console.error("Error retrieving credentials: ", err);
             alert("AWS認証情報の取得に失敗しました。");
             return;
         }
-        
         polly = new AWS.Polly({ region: region });
         console.log('Polly client initialized with Cognito.');
-
-        // AudioContextの初期化
+        speakBtn.disabled = false;
         if (!audioContext) {
             try {
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -251,9 +227,19 @@ function initializePolly() {
     });
 }
 
+function updateSpeakButtonState(speaking) {
+    if (speaking) {
+        speakBtn.innerHTML = '■';
+        speakBtn.title = '音声中止';
+    } else {
+        speakBtn.innerHTML = '🔊';
+        speakBtn.title = '音声生成';
+    }
+}
+
 async function speak(text, force_regenerate = false) {
-    if (!polly || !audioContext) {
-        alert('AWS認証情報またはオーディオ機能が初期化されていないため、音声を再生できません。');
+    if (!polly || !audioContext || speakBtn.disabled) {
+        alert('音声機能が初期化されていないか、準備中です。少し待ってからもう一度お試しください。');
         return;
     }
     if (!text || !text.trim()) return;
@@ -264,12 +250,13 @@ async function speak(text, force_regenerate = false) {
 
     stopSpeech();
     isSpeaking = true;
+    updateSpeakButtonState(true);
 
     const containsMeaningfulEnglish = /[a-vx-zA-VX-Z]/.test(text);
 
     if (containsMeaningfulEnglish) {
         const processedText = text.replace(/\b(w|W|ｗ|Ｗ)+\b/g, '').replace(/哈{2,}/g, '');
-        playAudioFromText(processedText, () => { isSpeaking = false; });
+        playAudioFromText(processedText, () => { isSpeaking = false; updateSpeakButtonState(false); });
     } else {
         let processedText = text
             .replace(/\b(w|W|ｗ|Ｗ)+\b/g, ' __LAUGH_PAUSE__ ')
@@ -289,15 +276,9 @@ async function playAudioFromText(text, onEndedCallback) {
     }
 
     try {
-        const params = {
-            Text: text,
-            OutputFormat: 'mp3',
-            VoiceId: 'Zhiyu',
-            Engine: 'neural'
-        };
+        const params = { Text: text, OutputFormat: 'mp3', VoiceId: 'Zhiyu', Engine: 'neural' };
         const data = await polly.synthesizeSpeech(params).promise();
         if (data.AudioStream) {
-            // AudioStream (Buffer/Uint8Array) から ArrayBuffer を正しく取得する
             const arrayBuffer = data.AudioStream.buffer.slice(data.AudioStream.byteOffset, data.AudioStream.byteOffset + data.AudioStream.byteLength);
             const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
             audioCache.set(text, audioBuffer);
@@ -317,13 +298,10 @@ function playAudioBuffer(audioBuffer, onEndedCallback) {
     }
     const source = audioContext.createBufferSource();
     source.buffer = audioBuffer;
-
     const gainNode = audioContext.createGain();
     gainNode.gain.value = 2.0; 
-
     source.connect(gainNode);
     gainNode.connect(audioContext.destination);
-    
     source.start(0);
     currentAudioSource = source;
     source.onended = () => {
@@ -337,31 +315,25 @@ function playAudioBuffer(audioBuffer, onEndedCallback) {
 async function playNextChunk() {
     if (!isSpeaking || speechQueue.length === 0) {
         isSpeaking = false;
+        updateSpeakButtonState(false);
         return;
     }
 
     const chunk = speechQueue.shift().trim();
-
     if (chunk === '') {
         playNextChunk();
         return;
     }
 
-    const punctuationPauseMap = {
-        '。': 500, '！': 500, '？': 500, '、': 250, '~': 200, '～': 200,
-        '「': 150, '」': 150, '『': 150, '』': 150, '""': 150, '\n': 400
-    };
-
+    const punctuationPauseMap = { '。': 500, '！': 500, '？': 500, '、': 250, '~': 200, '～': 200, '「': 150, '」': 150, '『': 150, '』': 150, '\n': 400 };
     if (punctuationPauseMap[chunk]) {
         speechTimer = setTimeout(playNextChunk, punctuationPauseMap[chunk]);
         return;
     }
-    
     if (chunk === '__LAUGH_PAUSE__') {
         speechTimer = setTimeout(playNextChunk, 200);
         return;
     }
-    
     if (/^\s+$/.test(chunk)) {
         speechTimer = setTimeout(playNextChunk, 150);
         return;
@@ -376,6 +348,7 @@ async function playNextChunk() {
 
 function stopSpeech() {
     isSpeaking = false;
+    updateSpeakButtonState(false);
     speechQueue = [];
     if (currentAudioSource) {
         currentAudioSource.onended = null;
@@ -394,10 +367,8 @@ async function callGemini(prompt, mode) {
         return null;
     }
     setLoadingState(true);
-    
-    abortController = new AbortController(); // 新しいAbortControllerを生成
+    abortController = new AbortController();
     const signal = abortController.signal;
-
     const model = "gemini-2.5-pro";
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiApiKey}`;
     try {
@@ -411,17 +382,11 @@ async function callGemini(prompt, mode) {
         const systemInstruction = { parts: [{ text: (mode === 'jp-to-cn') ? jpToCnPrompt : cnToJpPrompt }] };
         const normalizedHistory = [];
         let lastRole = 'model';
-        for (const message of chatHistory) {
-            if (message.role !== lastRole) {
-                normalizedHistory.push(message);
-                lastRole = message.role;
-            }
-        }
+        for (const message of chatHistory) { if (message.role !== lastRole) { normalizedHistory.push(message); lastRole = message.role; } }
         const contents = [...normalizedHistory, { role: "user", parts: [{ text: prompt }] }];
         const requestBody = { contents, systemInstruction, generationConfig, safetySettings };
         lastRequestLog = JSON.stringify({ model, mode, request_body: requestBody }, null, 2);
-        console.log("--- Gemini API Request ---");
-        console.log(lastRequestLog);
+        console.log("--- Gemini API Request ---", lastRequestLog);
         const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(requestBody), signal });
         if (!response.ok) {
             const errorBody = await response.text();
@@ -445,7 +410,7 @@ async function callGemini(prompt, mode) {
         return null;
     } finally {
         setLoadingState(false);
-        abortController = null; // AbortControllerをリセット
+        abortController = null;
     }
 }
 
@@ -498,9 +463,19 @@ function updatePinyinDisplay(text) {
 }
 
 function setLoadingState(isLoading) {
-    translateBtn.disabled = isLoading;
-    cancelBtn.disabled = !isLoading; // 中止ボタンはロード中にのみ有効
-    clearBtn.disabled = isLoading;
+    if (isLoading) {
+        translateBtn.innerHTML = '🛑';
+        translateBtn.title = '中止';
+        speakBtn.disabled = true;
+        clearInputBtn.disabled = true;
+        clearBtn.disabled = true;
+    } else {
+        translateBtn.innerHTML = '▶️';
+        translateBtn.title = '翻訳';
+        speakBtn.disabled = false;
+        clearInputBtn.disabled = false;
+        clearBtn.disabled = false;
+    }
 }
 
 function autoResizeTextarea() {
@@ -514,27 +489,61 @@ function autoResizeTextarea() {
 }
 
 async function handleTranslation() {
-    const text = textInput.value.trim();
-    if (!text) return;
-    const lastChars = text.slice(-5);
-    const containsJapanese = /[\u3040-\u309F\u30A0-\u30FF]/.test(lastChars);
-    const mode = containsJapanese ? 'jp-to-cn' : 'cn-to-jp';
+    const originalText = textInput.value.trim();
+    if (!originalText) return;
 
+    // 1. モード判定
+    const translateMatch = originalText.match(/Text to translate:\s*([\s\S]*)/i);
+    let mode = 'cn-to-jp'; // デフォルト
+    // "Text to translate:" の後に日本語があるかを優先的にチェック
+    if (translateMatch && /[\u3040-\u309F\u30A0-\u30FF]/.test(translateMatch[1])) {
+        mode = 'jp-to-cn';
+    } else if (!translateMatch) {
+        // テンプレートがない場合は、従来通り末尾で判定
+        const lastChars = originalText.slice(-5);
+        if (/[\u3040-\u309F\u30A0-\u30FF]/.test(lastChars)) {
+            mode = 'jp-to-cn';
+        }
+    }
+
+    // 2. 翻訳対象テキストの抽出とAPI用プロンプトの作成
+    let textForUI = originalText; // UI表示用のテキスト
+    let promptForApi = originalText; // API送信用テキスト
+
+    if (mode === 'jp-to-cn') {
+        if (translateMatch && translateMatch[1].trim()) {
+            textForUI = translateMatch[1].trim();
+        }
+        const contextMatch = originalText.match(/^Context:\s*([\s\S]*?)(?:Text to translate:|$)/i);
+        const contextText = (contextMatch && contextMatch[1]) ? contextMatch[1].trim() : null;
+        if (contextText) {
+             promptForApi = `Context: ${contextText}\n\nText to translate: ${textForUI}`;
+        } else {
+            promptForApi = textForUI;
+        }
+
+    } else { // cn-to-jp
+        const contextMatch = originalText.match(/^Context:\s*([\s\S]*?)(?:Text to translate:|$)/i);
+        if (contextMatch && contextMatch[1].trim()) {
+            textForUI = contextMatch[1].trim();
+            promptForApi = textForUI;
+        }
+    }
+
+    // 3. 翻訳実行
     chineseOutput.innerHTML = '';
     geminiOutput.innerHTML = '';
 
     if (mode === 'cn-to-jp') {
-        lastSpokenText = text;
-        updatePinyinDisplay(text);
-        const translation = await callGemini(text, 'cn-to-jp');
+        lastSpokenText = textForUI;
+        updatePinyinDisplay(textForUI);
+        const translation = await callGemini(promptForApi, 'cn-to-jp');
         if (translation) {
-            const highlightedTranslation = translation.replace(/\*\*(.*?)\*\*/g, '<span class="important-expression">$1</span>')
-                                                      .replace(/`/g, '')
-                                                      .replace(/\n/g, '<br>');
+            const highlightedTranslation = translation.replace(/\*\*(.*?)\*\*/g, '<span class="important-expression">$1</span>').replace(/`/g, '').replace(/\n/g, '<br>');
             geminiOutput.innerHTML = highlightedTranslation;
         }
     } else { // jp-to-cn
-        const response = await callGemini(text, 'jp-to-cn');
+        const response = await callGemini(promptForApi, 'jp-to-cn');
         if (!response) return;
         const translationPairs = [];
         const blocks = response.split(/(【中国語翻訳\d】:)/).slice(1);
@@ -544,9 +553,7 @@ async function handleTranslation() {
             if (codeMatch && codeMatch[2]) {
                 const chineseText = codeMatch[2].trim();
                 const explanationRaw = content.substring(codeMatch[0].length).trim();
-                const explanationHtml = explanationRaw.replace(/\*\*(.*?)\*\*/g, '<span class="important-expression">$1</span>')
-                                                      .replace(/`/g, '')
-                                                      .replace(/\n/g, '<br>');
+                const explanationHtml = explanationRaw.replace(/\*\*(.*?)\*\*/g, '<span class="important-expression">$1</span>').replace(/`/g, '').replace(/\n/g, '<br>');
                 translationPairs.push({ chineseText, explanationText: explanationHtml });
             }
         }
@@ -563,26 +570,16 @@ async function handleTranslation() {
                 container.className = 'translation-block';
                 const clickablePart = document.createElement('div');
                 clickablePart.className = 'translation-option';
-                if (index === 0) {
-                    clickablePart.classList.add('selected');
-                }
+                if (index === 0) { clickablePart.classList.add('selected'); }
                 clickablePart.innerHTML = `<code>${chineseText.replace(/\n/g, '<br>')}</code>`;
                 const explanationPart = document.createElement('div');
                 explanationPart.className = 'explanation';
                 explanationPart.innerHTML = explanationText;
                 
                 clickablePart.addEventListener('click', () => {
-                    // 他の選択肢のハイライトを解除
-                    document.querySelectorAll('.translation-option.selected').forEach(el => {
-                        el.classList.remove('selected');
-                    });
-                    // クリックされたものをハイライト
+                    document.querySelectorAll('.translation-option.selected').forEach(el => { el.classList.remove('selected'); });
                     clickablePart.classList.add('selected');
-                    
-                    // 機能の復活
                     updatePinyinDisplay(chineseText);
-                    
-                    // クリップボードへのコピー (安全なコンテキストでのみ機能)
                     if (navigator.clipboard) {
                         navigator.clipboard.writeText(chineseText)
                             .then(() => console.log('Copied to clipboard.'))
@@ -590,15 +587,12 @@ async function handleTranslation() {
                     } else {
                         console.warn('Clipboard API not available in this context.');
                     }
-                    
                     speak(chineseText);
-                    lastSpokenText = chineseText; // 音声ボタン用のテキストを更新
+                    lastSpokenText = chineseText;
                 });
 
                 container.appendChild(clickablePart);
-                if (explanationText) {
-                    container.appendChild(explanationPart);
-                }
+                if (explanationText) { container.appendChild(explanationPart); }
                 geminiOutput.appendChild(container);
             });
         }
@@ -608,17 +602,31 @@ async function handleTranslation() {
 function handleAutoPinyin() {
     clearTimeout(inputDebounceTimer);
     inputDebounceTimer = setTimeout(() => {
-        const text = textInput.value.trim();
-        if (!text) return;
+        const fullText = textInput.value;
+        const contextMatch = fullText.match(/^Context:\s*([\s\S]*?)(?:Text to translate:|$)/i);
+        const contextText = (contextMatch && contextMatch[1]) ? contextMatch[1].trim() : null;
 
-        const containsChinese = /[\u4e00-\u9fa5]/.test(text);
-        const lastChars = text.slice(-5);
-        const containsJapanese = /[\u3040-\u309F\u30A0-\u30FF]/.test(lastChars);
+        // Contextがあり、中国語が含まれている場合のみ処理
+        if (contextText && /[\u4e00-\u9fa5]/.test(contextText)) {
+            // ピンイン表示は常に行う
+            updatePinyinDisplay(contextText);
+            lastSpokenText = contextText; // 手動再生用に常に更新
 
-        if (containsChinese && !containsJapanese) {
-            updatePinyinDisplay(text);
-            speak(text);
-            lastSpokenText = text;
+            // 自動再生はContext内容が変わったときの一度だけ
+            if (contextText !== lastAutoSpokenContext) {
+                speak(contextText);
+                lastAutoSpokenContext = contextText;
+            }
+        } else if (!contextMatch) {
+            // テンプレートが全く使われていない場合（従来の中国語のみ入力のケース）
+            const text = fullText.trim();
+            const containsChinese = /[\u4e00-\u9fa5]/.test(text);
+            const containsJapanese = /[\u3040-\u309F\u30A0-\u30FF]/.test(text.slice(-5));
+             if (containsChinese && !containsJapanese) {
+                updatePinyinDisplay(text);
+                speak(text);
+                lastSpokenText = text;
+            }
         }
     }, 500);
 }
@@ -646,27 +654,45 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     
-    stopBtn.addEventListener('click', stopSpeech);
-
     speakBtn.addEventListener('click', () => {
-        if(lastSpokenText) {
-            speak(lastSpokenText, true);
+        if (isSpeaking) {
+            stopSpeech();
+        } else {
+            const fullText = textInput.value;
+            const contextMatch = fullText.match(/^Context:\s*([\s\S]*?)(?:Text to translate:|$)/i);
+            let textToSpeak = lastSpokenText; // デフォルトは最後に処理されたテキスト
+
+            // Contextがある場合は、それを優先して手動再生の対象にする
+            if (contextMatch && contextMatch[1] && contextMatch[1].trim()) {
+                textToSpeak = contextMatch[1].trim();
+            }
+            
+            if (textToSpeak) {
+                speak(textToSpeak, true); // trueで強制再生成
+            }
         }
     });
 
-    translateBtn.addEventListener('click', handleTranslation);
-
-    cancelBtn.addEventListener('click', () => {
-        if (abortController) {
-            abortController.abort();
+    translateBtn.addEventListener('click', () => {
+        if (translateBtn.innerHTML === '🛑') {
+            if (abortController) {
+                abortController.abort();
+            }
+        } else {
+            handleTranslation();
         }
+    });
+
+    clearInputBtn.addEventListener('click', () => {
+        textInput.value = '';
+        autoResizeTextarea();
     });
 
     clearBtn.addEventListener('click', () => {
-        textInput.value = '';
+        // textInput.value = ''; // この行を削除
         chineseOutput.innerHTML = '';
         geminiOutput.innerHTML = '';
         chatHistory = [];
-        autoResizeTextarea();
+        // autoResizeTextarea(); // テキストボックスのサイズ変更も不要
     });
 });
