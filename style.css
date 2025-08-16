@@ -11,7 +11,7 @@ body {
 .container {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 20px); /* ビューポートの高さからパディングを引く */
+  min-height: calc(100vh - 20px); /* 最小高さを設定し、コンテンツに合わせて伸びるようにする */
 }
 
 .input-section {
@@ -105,12 +105,21 @@ body {
 }
 
 .output-section {
-    flex-grow: 1; /* 残りのスペースを埋めるように拡張 */
     overflow-y: auto;
     border-top: 1px solid #444;
     padding-top: 0.5rem;
     display: flex;
     flex-direction: column;
+}
+
+/* ピンイン表示欄のコンテナは縮まないようにする */
+#chinese-output-container {
+    flex-shrink: 0;
+}
+
+/* Gemini翻訳結果のコンテナが残りのスペースを埋める */
+#gemini-output-container {
+    flex-grow: 1;
 }
 
 #chinese-output {
