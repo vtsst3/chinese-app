@@ -640,6 +640,7 @@ async function handleTranslation() {
                         console.warn('Clipboard API not available in this context.');
                     }
                     speak(chineseText);
+                    textInput.scrollIntoView({ behavior: 'instant', block: 'start' }); // 入力欄の上部へスクロール
                     lastSpokenText = chineseText;
                 });
 

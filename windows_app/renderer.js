@@ -632,6 +632,8 @@ async function handleTranslation() {
                     document.querySelectorAll('.translation-option.selected').forEach(el => { el.classList.remove('selected'); });
                     clickablePart.classList.add('selected');
                     updatePinyinDisplay(chineseText);
+                    speak(chineseText); // クリック時に読み上げ
+                    textInput.scrollIntoView({ behavior: 'instant', block: 'start' }); // 入力欄の上部へスクロール
                     if (navigator.clipboard) {
                         navigator.clipboard.writeText(chineseText)
                             .then(() => console.log('Copied to clipboard.'))
@@ -771,10 +773,19 @@ document.addEventListener('DOMContentLoaded', () => {
     // メインプロセスからのクリップボード更新通知をリッスン
     if (window.ipcRenderer) {
         window.ipcRenderer.on('clipboard-updated', (event, text) => {
-            console.log('Clipboard updated from main process:', text);
-            textInput.value = text;
-            autoResizeTextarea();
-            handleAutoPinyin();
+            // ウィンドウにフォーカスがない（バックグラウンド状態の）場合のみ自動入力する
+            if (!document.hasFocus()) {
+                console.log('Clipboard updated from main process (background):', text);
+                
+                // メインプロセスにウィンドウの表示を要求
+                window.ipcRenderer.send('show-window');
+
+                textInput.value = text;
+                autoResizeTextarea();
+                handleAutoPinyin();
+            } else {
+                console.log('Clipboard updated but window is focused. Ignoring auto-input.');
+            }
         });
     }
 });
