@@ -376,10 +376,10 @@ async function callGemini(prompt, mode) {
     setLoadingState(true);
     abortController = new AbortController();
     const signal = abortController.signal;
-    const model = "gemini-2.5-pro";
+    const model = "gemini-2.5-flash";
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiApiKey}`;
     try {
-        const generationConfig = { temperature: 0.7, maxOutputTokens: 8192, thinkingConfig: { thinkingBudget: 128 } };
+        const generationConfig = { temperature: 0.7, maxOutputTokens: 8192, thinkingConfig: { thinkingBudget: 0 } };
         const safetySettings = [
             { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
             { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
