@@ -674,7 +674,7 @@ function handleAutoPinyin() {
             // テンプレートが全く使われていない場合（従来の中国語のみ入力のケース）
             const text = fullText.trim();
             const containsChinese = /[\u4e00-\u9fa5]/.test(text);
-            const containsJapanese = /[\u3040-\u309F\u30A0-\u30FF]/.test(text.slice(-5));
+            const containsJapanese = /[\u3040-\u309F\u30A0-\u30FF]/.test(text.slice(-10));
              if (containsChinese && !containsJapanese) {
                 updatePinyinDisplay(text);
                 speak(text);
