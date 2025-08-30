@@ -423,31 +423,45 @@ async function callGemini(prompt, mode) {
 
 function showDictionaryPopup(definition, event) {
     if (!dictionaryPopup || !definition) return;
-    // スラッシュを改行に置換し、定義を表示
+
+    // event.target からクリックされた要素を取得
+    const targetElement = event.currentTarget; 
+    const rect = targetElement.getBoundingClientRect();
+
     dictionaryPopup.innerHTML = definition.replace(/\//g, '<br>');
-    
-    // 画面の境界を考慮してポップアップの位置を調整
+    dictionaryPopup.classList.remove('hidden'); // 先に表示してサイズを取得
+
     const popupWidth = dictionaryPopup.offsetWidth;
     const popupHeight = dictionaryPopup.offsetHeight;
-    const margin = 10; // 画面端からのマージン
+    const margin = 5; // 単語からのマージン
 
-    let x = event.clientX + margin;
-    let y = event.clientY + margin;
+    let top, left;
 
-    // 右端に飛び出す場合は、カーソルの左側に表示
-    if (x + popupWidth > window.innerWidth) {
-        x = event.clientX - popupWidth - margin;
+    // 縦位置の決定：基本は単語の下、スペースがなければ上
+    if (rect.bottom + popupHeight + margin < window.innerHeight) {
+        // 下に十分なスペースがある場合
+        top = rect.bottom + margin;
+    } else {
+        // 上に表示
+        top = rect.top - popupHeight - margin;
     }
-    // 下端に飛び出す場合は、カーソルの上側に表示
-    if (y + popupHeight > window.innerHeight) {
-        y = event.clientY - popupHeight - margin;
+
+    // 横位置の決定：基本は単語の左端に合わせる
+    left = rect.left;
+
+    // 右端がはみ出す場合は調整
+    if (left + popupWidth > window.innerWidth) {
+        left = window.innerWidth - popupWidth - margin;
     }
+    // 左端がはみ出す場合は調整 (ほぼないが念のため)
+    if (left < 0) {
+        left = margin;
+    }
+    
+    // ページ全体のスクロール量を加味
+    dictionaryPopup.style.top = `${top + window.scrollY}px`;
+    dictionaryPopup.style.left = `${left + window.scrollX}px`;
 
-    dictionaryPopup.style.left = `${x}px`;
-    dictionaryPopup.style.top = `${y}px`;
-
-    // ポップアップとオーバーレイを両方表示
-    dictionaryPopup.classList.remove('hidden');
     overlay.classList.remove('hidden');
     isPopupVisible = true;
 }
